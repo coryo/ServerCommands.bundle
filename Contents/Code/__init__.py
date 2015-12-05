@@ -1,9 +1,3 @@
-import sys
-module_path = Core.storage.abs_path(Core.storage.join_path(Core.bundle_path, 'Contents', 'Modules'))
-
-if module_path not in sys.path:
-        sys.path.append(module_path)
-
 import requests
 from updater import Updater
 
@@ -49,7 +43,7 @@ def MainMenu():
 
 
         return oc
-        
+
 ####################################################################################################  
 @route(PREFIX+'/command', data=dict, xml=bool)
 def ServerRequest(endpoint, method='GET', data=None, xml=False):
