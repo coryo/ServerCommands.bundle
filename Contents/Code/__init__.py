@@ -13,14 +13,19 @@ PLEX_ICONS = {
     'show':     R("glyphicons-display.png")
 }
 FUNCTIONS = {
+    '/library': {
+        "refresh_all":   "GET /library/sections/all/refresh",
+        "optimize":      "PUT /library/optimize",
+        "clean_bundles": "PUT /library/clean/bundles"
+    },
     '/library/sections': {
-        "Refresh":     "GET /library/sections/%s/refresh",
-        "Empty Trash": "PUT /library/sections/%s/emptyTrash",
-        "Analyze":     "PUT /library/sections/%s/analyze"
+        "refresh":     "GET /library/sections/%s/refresh",
+        "empty_trash": "PUT /library/sections/%s/emptyTrash",
+        "analyze":     "PUT /library/sections/%s/analyze"
     },
     '/library/metadata': {
-        "Refresh": "PUT /library/metadata/%s/refresh",
-        "Analyze": "PUT /library/metadata/%s/analyze"
+        "refresh": "PUT /library/metadata/%s/refresh",
+        "analyze": "PUT /library/metadata/%s/analyze"
     }
 }
 
@@ -69,7 +74,7 @@ def Start():
 
 @handler(PREFIX, NAME, ICON)
 def MainMenu():       
-    oc = ObjectContainer()
+    oc = ObjectContainer(no_cache=True)
 
     Updater(PREFIX + '/updater', oc)
 
@@ -80,23 +85,15 @@ def MainMenu():
             summary=u'%s' % L('auth_message')
         ))
     else:
-        oc.add(DirectoryObject(
-            key=Callback(ExecuteCommand, method='GET',
-                         endpoint='/library/sections/all/refresh'),
-            title=u'%s: %s' % (L('Library'), L('Refresh all'))
-        ))
+        for func, path in FUNCTIONS['/library'].iteritems():
+            if not Prefs[func]:
+                continue
 
-        oc.add(DirectoryObject(
-            key=Callback(ExecuteCommand, method='PUT',
-                         endpoint='/library/optimize'),
-            title=u'%s: %s' % (L('Library'), L('Optimize'))
-        ))
-
-        oc.add(DirectoryObject(
-            key=Callback(ExecuteCommand, method='PUT',
-                         endpoint='/library/clean/bundles'),
-            title=u'%s: %s' % (L('Library'), L('Clean Bundles'))
-        ))
+            method, endpoint = path.split(' ')
+            oc.add(DirectoryObject(
+                key=Callback(ExecuteCommand, method=method, endpoint=endpoint),
+                title=u'%s: %s' % (L('Library'), L(func))
+            ))
 
         oc.add(DirectoryObject(
             key=Callback(BrowseContainers, endpoint='/library/sections',
@@ -114,6 +111,10 @@ def MainMenu():
                 key=Callback(UpdateToken, token=None),
                 title=u'%s' % L('Deauthorize Channel')
             ))
+
+        oc.add(PrefsObject(
+            title = L('Preferences')
+        ))
 
     return oc
 
@@ -165,14 +166,18 @@ def BrowseContainers(endpoint, functions=None):
     return oc
 
 @route(PREFIX+'/functionmenu', functions=dict)
-def FunctionMenu(item, functions):
+def FunctionMenu(functions, item=None):
     """ Actions to be performed on a metadata item """
     oc = ObjectContainer()
 
     for func, path in functions.iteritems():
+        if not Prefs[func]:
+            continue
+
         method, endpoint = path.split(' ')
+        endpoint = endpoint if item is None else endpoint % item
         oc.add(DirectoryObject(
-            key=Callback(ExecuteCommand, method=method, endpoint=endpoint%item),
+            key=Callback(ExecuteCommand, method=method, endpoint=endpoint),
             title=u'%s' % L(func),
         ))
 

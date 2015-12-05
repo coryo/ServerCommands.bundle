@@ -4,12 +4,12 @@
         "Channel updated to version %s": "Channel updated to version %s",
         "Library": "Library",
         "Sections": "Sections",
-        "Refresh all": "Refresh all",
-        "Optimize": "Optimize",
         "Browse": "Browse",
-        "Analyze": "Analyze",
-        "Empty Trash": "Empty Trash",
-        "Clean Bundles": "Clean Bundles",
+        "refresh_all": "Refresh all",
+        "optimize": "Optimize",
+        "analyze": "Analyze",
+        "empty_trash": "Empty Trash",
+        "clean_bundles": "Clean Bundles",
         "auth_message": "Log-in as root user, then press this button to Authorize.",
         "Deauthorize Channel": "Deauthorize Channel"
 }
