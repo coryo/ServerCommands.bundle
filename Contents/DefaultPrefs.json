@@ -1,38 +1,38 @@
 [
     {
-        "id":           "refresh_all",
-        "label":        "Allow Refresh all",
-        "type":         "bool",
-        "default":      "true",
+        "id": "refresh_all",
+        "label": "Allow Refresh all",
+        "type": "bool",
+        "default": "true"
     },
     {
-        "id":           "optimize",
-        "label":        "Allow Optimize",
-        "type":         "bool",
-        "default":      "true",
+        "id": "optimize",
+        "label": "Allow Optimize",
+        "type": "bool",
+        "default": "true"
     },
     {
-        "id":           "clean_bundles",
-        "label":        "Allow Clean Bundles",
-        "type":         "bool",
-        "default":      "true",
+        "id": "clean_bundles",
+        "label": "Allow Clean Bundles",
+        "type": "bool",
+        "default": "true"
     },
     {
-        "id":           "refresh",
-        "label":        "Allow Refresh",
-        "type":         "bool",
-        "default":      "true",
+        "id": "refresh",
+        "label": "Allow Refresh",
+        "type": "bool",
+        "default": "true"
     },
     {
-        "id":           "empty_trash",
-        "label":        "Allow Empty Trash",
-        "type":         "bool",
-        "default":      "true",
+        "id": "empty_trash",
+        "label": "Allow Empty Trash",
+        "type": "bool",
+        "default": "true"
     },
     {
-        "id":           "analyze",
-        "label":        "Allow Analyze",
-        "type":         "bool",
-        "default":      "true",
+        "id": "analyze",
+        "label": "Allow Analyze",
+        "type": "bool",
+        "default": "true"
     }
 ]

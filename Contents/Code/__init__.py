@@ -1,17 +1,11 @@
 import requests
 from updater import Updater
+from DumbTools import DumbPrefs
 
 NAME = 'Server Commands'
 PREFIX = '/video/servercommands'
 ICON = 'icon-default.png'
 
-PLEX_ICONS = {
-    'channels': R("glyphicons-show-big-thumbnails.png"),
-    'movie':    R("glyphicons-film.png"),
-    'artist':   R("glyphicons-music.png"),
-    'photo':    R("glyphicons-picture.png"),
-    'show':     R("glyphicons-display.png")
-}
 FUNCTIONS = {
     '/library': {
         "refresh_all":   "GET /library/sections/all/refresh",
@@ -30,11 +24,12 @@ FUNCTIONS = {
 }
 
 ################################################################################
-def server_request(endpoint, method='GET', data=None):
+def server_request(endpoint, method='GET', token=None, data=None):
     url = "http://127.0.0.1:32400" + endpoint
     headers = {
         'Accept': 'application/json',
-        'X-Plex-Token': Dict['token']
+        'Connection': 'close',
+        'X-Plex-Token': token if token is not None else Dict['token']
     }
 
     res = None
@@ -65,7 +60,24 @@ def is_authorized(token):
     auth is tested on an endpoint that either returns 401 or 404
     """
     return False if token is None else \
-        server_request('/testauth', method='GET')[0] != 401
+        server_request('/testauth', method='GET', token=token)[0] != 401
+
+def add_functions_to_oc(oc, functions, item=None, title=None):
+    for func, path in functions.iteritems():
+        if not Prefs[func]:
+            continue
+        method, endpoint = path.split(' ')
+        endpoint = endpoint if item is None else endpoint % item
+        oc.add(DirectoryObject(
+            key=Callback(ExecuteCommand, method=method, endpoint=endpoint, data=None),
+            title=u'%s: %s' % (title, L(func)) if title else u'%s' % L(func)
+        ))
+
+def request_thread(endpoint, method='GET', data=None):
+    code, msg = server_request(endpoint, method, data)
+    Log.Info("%s - %s - %d" % (endpoint, code, len(msg)))
+    return code, msg
+
 ################################################################################
 def Start():
     ObjectContainer.title1 = NAME
@@ -85,18 +97,11 @@ def MainMenu():
             summary=u'%s' % L('auth_message')
         ))
     else:
-        for func, path in FUNCTIONS['/library'].iteritems():
-            if not Prefs[func]:
-                continue
-
-            method, endpoint = path.split(' ')
-            oc.add(DirectoryObject(
-                key=Callback(ExecuteCommand, method=method, endpoint=endpoint),
-                title=u'%s: %s' % (L('Library'), L(func))
-            ))
+        add_functions_to_oc(oc, FUNCTIONS['/library'], title=L('Library'))
 
         oc.add(DirectoryObject(
-            key=Callback(BrowseContainers, endpoint='/library/sections',
+            key=Callback(BrowseContainers,
+                         endpoint='/library/sections',
                          functions=FUNCTIONS['/library/sections']),
             title=u'%s: %s ...' % (L('Library'), L('Sections'))
         ))
@@ -106,15 +111,17 @@ def MainMenu():
             title=u'%s: %s ...' % (L('Library'), L('Browse'))
         ))
 
-        if Request.Headers['X-Plex-Token'] == Dict['token']:
+        if is_authorized(Request.Headers['X-Plex-Token']):
+            # current client is the same as stored token.
             oc.add(DirectoryObject(
                 key=Callback(UpdateToken, token=None),
                 title=u'%s' % L('Deauthorize Channel')
             ))
 
-        oc.add(PrefsObject(
-            title = L('Preferences')
-        ))
+            if Client.Product in DumbPrefs.clients:
+                DumbPrefs(PREFIX, oc, title=L('Preferences'))
+            else:
+                oc.add(PrefsObject(title=L('Preferences')))
 
     return oc
 
@@ -124,11 +131,11 @@ def MainMenu():
 @route(PREFIX+'/execute', data=dict)
 def ExecuteCommand(endpoint, method='GET', data=None):
     """
-    A route for making requests.
-    Returns an object container to the client
+    A route for making requests. The request is done in a separate thread
+    to prevent the client from timing out on some requests.
     """
-    code, msg = server_request(endpoint, method, data)
-    Log.Info("%s - %s - %d" % (endpoint, code, len(msg)))
+    Log.Info("Creating request thread: %s %s" % (method,endpoint))
+    Thread.CreateTimer(1, request_thread, endpoint=endpoint, method=method, data=data)
     return ObjectContainer()
 
 @route(PREFIX+'/browse', functions=dict)
@@ -137,7 +144,7 @@ def BrowseContainers(endpoint, functions=None):
     if functions are specified, the callback will go immediately to the
     function menu, otherwise we will keep browsing until we find metadata items.
     """
-    oc = ObjectContainer()
+    oc = ObjectContainer(title2=endpoint)
 
     res = get_json(endpoint)
 
@@ -157,7 +164,7 @@ def BrowseContainers(endpoint, functions=None):
                         else functions
             item_id = key if rating_key is None else rating_key
 
-            callback = Callback(FunctionMenu, item=item_id, functions=item_func)
+            callback = Callback(FunctionMenu, item=item_id, functions=item_func, title=None)
         else:
             callback = Callback(BrowseContainers, endpoint=item_endpoint)
 
@@ -166,21 +173,10 @@ def BrowseContainers(endpoint, functions=None):
     return oc
 
 @route(PREFIX+'/functionmenu', functions=dict)
-def FunctionMenu(functions, item=None):
+def FunctionMenu(functions, item=None, title=None):
     """ Actions to be performed on a metadata item """
     oc = ObjectContainer()
-
-    for func, path in functions.iteritems():
-        if not Prefs[func]:
-            continue
-
-        method, endpoint = path.split(' ')
-        endpoint = endpoint if item is None else endpoint % item
-        oc.add(DirectoryObject(
-            key=Callback(ExecuteCommand, method=method, endpoint=endpoint),
-            title=u'%s' % L(func),
-        ))
-
+    add_functions_to_oc(oc, functions, item=item, title=title)
     return oc
 
 @route(PREFIX+'/updatetoken')
