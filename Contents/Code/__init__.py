@@ -1,4 +1,5 @@
 import requests
+import os
 from updater import Updater
 from DumbTools import DumbPrefs
 
@@ -24,11 +25,11 @@ FUNCTIONS = {
 }
 
 ################################################################################
-def server_request(endpoint, method='GET', token=None, data=None):
+def server_request(endpoint, method='GET', data=None):
     url = "http://127.0.0.1:32400" + endpoint
     headers = {
         'Accept': 'application/json',
-        'X-Plex-Token': token if token is not None else Dict['token']
+        'X-Plex-Token': os.environ['PLEXTOKEN']
     }
 
     res = None
@@ -54,14 +55,6 @@ def get_json(endpoint):
     else:
         return json
 
-def is_authorized(token):
-    """
-    returns true if the given token has the auth we need.
-    auth is tested on an endpoint that either returns 401 or 404
-    """
-    return False if token is None else \
-        server_request('/testauth', method='GET', token=token)[0] != 401
-
 def add_functions_to_oc(oc, functions, item=None, title=None):
     for func, path in functions.iteritems():
         if not Prefs[func]:
@@ -76,8 +69,6 @@ def add_functions_to_oc(oc, functions, item=None, title=None):
 ################################################################################
 def Start():
     ObjectContainer.title1 = NAME
-    if 'token' not in Dict:
-        Dict['token'] = None
 
 @handler(PREFIX, NAME, ICON)
 def MainMenu():       
@@ -85,37 +76,24 @@ def MainMenu():
 
     Updater(PREFIX + '/updater', oc)
 
-    if not is_authorized(Dict['token']):
-        oc.add(DirectoryObject(
-            key=Callback(UpdateToken, token=Request.Headers['X-Plex-Token']),
-            title=u'%s' % L('auth_message'),
-            summary=u'%s' % L('auth_message')
-        ))
+    add_functions_to_oc(oc, FUNCTIONS['/library'], title=L('Library'))
+
+    oc.add(DirectoryObject(
+        key=Callback(BrowseContainers,
+                     endpoint='/library/sections',
+                     functions=FUNCTIONS['/library/sections']),
+        title=u'%s: %s ...' % (L('Library'), L('Sections'))
+    ))
+
+    oc.add(DirectoryObject(
+        key=Callback(BrowseContainers, endpoint='/library/sections'),
+        title=u'%s: %s ...' % (L('Library'), L('Browse'))
+    ))
+
+    if Client.Product in DumbPrefs.clients:
+        DumbPrefs(PREFIX, oc, title=L('Preferences'))
     else:
-        add_functions_to_oc(oc, FUNCTIONS['/library'], title=L('Library'))
-
-        oc.add(DirectoryObject(
-            key=Callback(BrowseContainers,
-                         endpoint='/library/sections',
-                         functions=FUNCTIONS['/library/sections']),
-            title=u'%s: %s ...' % (L('Library'), L('Sections'))
-        ))
-
-        oc.add(DirectoryObject(
-            key=Callback(BrowseContainers, endpoint='/library/sections'),
-            title=u'%s: %s ...' % (L('Library'), L('Browse'))
-        ))
-
-        if is_authorized(Request.Headers['X-Plex-Token']):
-            oc.add(DirectoryObject(
-                key=Callback(UpdateToken, token=None),
-                title=u'%s' % L('Deauthorize Channel')
-            ))
-
-            if Client.Product in DumbPrefs.clients:
-                DumbPrefs(PREFIX, oc, title=L('Preferences'))
-            else:
-                oc.add(PrefsObject(title=L('Preferences')))
+        oc.add(PrefsObject(title=L('Preferences')))
 
     return oc
 
@@ -180,9 +158,3 @@ def FunctionMenu(functions, item=None, title=None):
     oc = ObjectContainer()
     add_functions_to_oc(oc, functions, item=item, title=title)
     return oc
-
-@route(PREFIX+'/updatetoken')
-def UpdateToken(token):
-    Dict['token'] = token
-    Dict.Save()
-    return ObjectContainer()
