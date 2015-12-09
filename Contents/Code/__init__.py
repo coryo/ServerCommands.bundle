@@ -28,7 +28,6 @@ def server_request(endpoint, method='GET', token=None, data=None):
     url = "http://127.0.0.1:32400" + endpoint
     headers = {
         'Accept': 'application/json',
-        'Connection': 'close',
         'X-Plex-Token': token if token is not None else Dict['token']
     }
 
@@ -42,6 +41,7 @@ def server_request(endpoint, method='GET', token=None, data=None):
     elif method == 'DELETE':
         res = requests.delete(url, headers=headers)
 
+    Log.Info('%s %s - %s' % (method, endpoint, res.status_code))
     return (res.status_code, res.text)
 
 def get_json(endpoint):
@@ -72,11 +72,6 @@ def add_functions_to_oc(oc, functions, item=None, title=None):
             key=Callback(ExecuteCommand, method=method, endpoint=endpoint, data=None),
             title=u'%s: %s' % (title, L(func)) if title else u'%s' % L(func)
         ))
-
-def request_thread(endpoint, method='GET', data=None):
-    code, msg = server_request(endpoint, method, data)
-    Log.Info("%s - %s - %d" % (endpoint, code, len(msg)))
-    return code, msg
 
 ################################################################################
 def Start():
@@ -112,7 +107,6 @@ def MainMenu():
         ))
 
         if is_authorized(Request.Headers['X-Plex-Token']):
-            # current client is the same as stored token.
             oc.add(DirectoryObject(
                 key=Callback(UpdateToken, token=None),
                 title=u'%s' % L('Deauthorize Channel')
@@ -135,8 +129,16 @@ def ExecuteCommand(endpoint, method='GET', data=None):
     to prevent the client from timing out on some requests.
     """
     Log.Info("Creating request thread: %s %s" % (method,endpoint))
-    Thread.CreateTimer(1, request_thread, endpoint=endpoint, method=method, data=data)
-    return ObjectContainer()
+    Thread.CreateTimer(1, server_request, endpoint=endpoint, method=method, data=data)
+    if Client.Platform in ['Plex Home Theater', 'OpenPHT']:
+        # PHT will start the thread and not go anywhere. There is no feedback to
+        # the user, but atleast it doesn't break. MessageContainer kind of works
+        # but it kicks you back to the channel menu and the channel history
+        # is broken when you try and go back to it.
+        return None
+    else:
+        # PMP/Plex Web uses this nicely
+        return MessageContainer(header=u'Command', message=u'%s %s' % (method, endpoint))
 
 @route(PREFIX+'/browse', functions=dict)
 def BrowseContainers(endpoint, functions=None):

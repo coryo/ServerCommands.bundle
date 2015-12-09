@@ -9,7 +9,7 @@
         "id": "optimize",
         "label": "Allow Optimize",
         "type": "bool",
-        "default": "true"
+        "default": "false"
     },
     {
         "id": "clean_bundles",
