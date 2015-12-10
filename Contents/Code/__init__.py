@@ -7,6 +7,7 @@ NAME = 'Server Commands'
 PREFIX = '/video/servercommands'
 ICON = 'icon-default.png'
 
+# Single shot functions
 FUNCTIONS = {
     '/library': {
         "refresh_all":   "GET /library/sections/all/refresh",
@@ -22,6 +23,13 @@ FUNCTIONS = {
         "refresh": "PUT /library/metadata/%s/refresh",
         "analyze": "PUT /library/metadata/%s/analyze"
     }
+}
+# Functions that need to be performed in sequence, with menus in between
+MULTI_STEP_FUNCTIONS = {
+    'fix_match': [
+        "GET /library/metadata/%s/matches?manual=1",
+        "PUT /library/metadata/%s/match?guid=%s&name=%s"
+    ]
 }
 
 ################################################################################
@@ -61,10 +69,16 @@ def add_functions_to_oc(oc, functions, item=None, title=None):
             continue
         method, endpoint = path.split(' ')
         endpoint = endpoint if item is None else endpoint % item
-        oc.add(DirectoryObject(
-            key=Callback(ExecuteCommand, method=method, endpoint=endpoint, data=None),
-            title=u'%s: %s' % (title, L(func)) if title else u'%s' % L(func)
-        ))
+        item_title = '%s: %s' % (title, L(func)) if title else L(func)
+        oc.add(DirectoryObject(key=Callback(ExecuteCommand, method=method,
+                                            endpoint=endpoint, data=None),
+                               title=u'%s'%item_title))
+
+def error_message(header, message):
+    if Client.Platform in ['Plex Home Theater', 'OpenPHT']:
+        return None
+    else:
+        return MessageContainer(header=u'%s'%header, message=u'%s'%message)
 
 ################################################################################
 def Start():
@@ -74,21 +88,12 @@ def Start():
 def MainMenu():       
     oc = ObjectContainer(no_cache=True)
 
-    Updater(PREFIX + '/updater', oc)
-
+    oc.add(DirectoryObject(key=Callback(BrowseContainers, endpoint='/library/sections',
+                                        functions=FUNCTIONS['/library/sections']),
+                           title=u'%s: %s ...' % (L('Library'), L('Sections'))))
+    oc.add(DirectoryObject(key=Callback(BrowseContainers, endpoint='/library/sections'),
+                           title=u'%s: %s ...' % (L('Library'), L('Browse'))))
     add_functions_to_oc(oc, FUNCTIONS['/library'], title=L('Library'))
-
-    oc.add(DirectoryObject(
-        key=Callback(BrowseContainers,
-                     endpoint='/library/sections',
-                     functions=FUNCTIONS['/library/sections']),
-        title=u'%s: %s ...' % (L('Library'), L('Sections'))
-    ))
-
-    oc.add(DirectoryObject(
-        key=Callback(BrowseContainers, endpoint='/library/sections'),
-        title=u'%s: %s ...' % (L('Library'), L('Browse'))
-    ))
 
     if Client.Product in DumbPrefs.clients:
         DumbPrefs(PREFIX, oc, title=L('Preferences'))
@@ -108,15 +113,7 @@ def ExecuteCommand(endpoint, method='GET', data=None):
     """
     Log.Info("Creating request thread: %s %s" % (method,endpoint))
     Thread.CreateTimer(1, server_request, endpoint=endpoint, method=method, data=data)
-    if Client.Platform in ['Plex Home Theater', 'OpenPHT']:
-        # PHT will start the thread and not go anywhere. There is no feedback to
-        # the user, but atleast it doesn't break. MessageContainer kind of works
-        # but it kicks you back to the channel menu and the channel history
-        # is broken when you try and go back to it.
-        return None
-    else:
-        # PMP/Plex Web uses this nicely
-        return MessageContainer(header=u'Command', message=u'%s %s' % (method, endpoint))
+    return error_message(header='Command', message='%s %s' % (method, endpoint))
 
 @route(PREFIX+'/browse', functions=dict)
 def BrowseContainers(endpoint, functions=None):
@@ -127,34 +124,64 @@ def BrowseContainers(endpoint, functions=None):
     oc = ObjectContainer(title2=endpoint)
 
     res = get_json(endpoint)
-
     if res is None:
-        return oc
+        return error_message(header=oc.title2, message='Error')
+    if not res['_children']:
+        return error_message(header=oc.title2, message='No child items')
 
     for item in res['_children']:
         key = item['key']
-
+        metadata = key.startswith('/library/metadata')
         thumb = item['thumb'] if 'thumb' in item else None
         rating_key = item['ratingKey'] if 'ratingKey' in item else None
         title = item['title']
         item_endpoint = "%s/%s" %(endpoint, key) if '/' not in key else key
 
-        if functions is not None or rating_key is not None:
+        # if functions is not None or rating_key is not None:
+        if functions is not None or metadata:
             item_func = FUNCTIONS['/library/metadata'] if functions is None \
                         else functions
             item_id = key if rating_key is None else rating_key
-
-            callback = Callback(FunctionMenu, item=item_id, functions=item_func, title=None)
+            callback = Callback(FunctionMenu, item=item_id, functions=item_func, title=None,
+                                metadata=metadata)
         else:
             callback = Callback(BrowseContainers, endpoint=item_endpoint)
-
         oc.add(DirectoryObject(key=callback, title=u'%s' % title, thumb=thumb))
-
     return oc
 
-@route(PREFIX+'/functionmenu', functions=dict)
-def FunctionMenu(functions, item=None, title=None):
+@route(PREFIX+'/functionmenu', functions=dict, metadata=bool)
+def FunctionMenu(functions, item=None, title=None, metadata=False):
     """ Actions to be performed on a metadata item """
     oc = ObjectContainer()
     add_functions_to_oc(oc, functions, item=item, title=title)
+    if metadata and Prefs['fix_match']:
+        oc.add(DirectoryObject(key=Callback(Matches, item=item),
+                               title=L('fix_match')))
+    return oc
+
+@route(PREFIX+'/matches')
+def Matches(item):
+    """
+    return a list of matches, with callback to replace the metadata with
+    the chosen match
+    """
+    # First Step
+    step_method, step_endpoint = MULTI_STEP_FUNCTIONS['fix_match'][0].split()
+    data = get_json(step_endpoint % item)
+    oc = ObjectContainer(title2=L('fix_match'))
+    if data is None:
+        return error_message(header=L('fix_match'), message='Error')
+    if not data['_children']:
+        return error_message(header=L('fix_match'), message='No Matches')
+
+    # Second Step
+    step_method, step_endpoint = MULTI_STEP_FUNCTIONS['fix_match'][1].split()
+    for result in data['_children']:
+        title = '[%s%%] %s - %s' % (result['score'], result['year'], result['name'])
+        guid = String.Quote(result['guid'], usePlus=True)
+        name = String.Quote(result['name'], usePlus=True)
+        oc.add(DirectoryObject(key=Callback(ExecuteCommand, method=step_method,
+                                            endpoint=step_endpoint%(item, guid, name)),
+                               thumb=Resource.ContentsOfURLWithFallback(result['thumb']),
+                               title=u'%s'%title))
     return oc

@@ -34,5 +34,11 @@
         "label": "Allow Analyze",
         "type": "bool",
         "default": "true"
-    }
+    },
+    {
+        "id": "fix_match",
+        "label": "Allow Fix Match",
+        "type": "bool",
+        "default": "false"
+    }    
 ]

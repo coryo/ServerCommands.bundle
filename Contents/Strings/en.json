@@ -11,6 +11,5 @@
     "analyze": "Analyze",
     "empty_trash": "Empty Trash",
     "clean_bundles": "Clean Bundles",
-    "auth_message": "Log-in as root user, then press this button to Authorize.",
-    "Deauthorize Channel": "Deauthorize Channel"
+    "fix_match": "Fix Match"
 }
