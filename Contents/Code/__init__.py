@@ -72,13 +72,14 @@ def add_functions_to_oc(oc, functions, item=None, title=None):
         item_title = '%s: %s' % (title, L(func)) if title else L(func)
         oc.add(DirectoryObject(key=Callback(ExecuteCommand, method=method,
                                             endpoint=endpoint, data=None),
-                               title=u'%s'%item_title))
+                               title=unicode(item_title)))
 
 def error_message(header, message):
     if Client.Platform in ['Plex Home Theater', 'OpenPHT']:
-        return None
+        return ObjectContainer(objects=[DirectoryObject(title=u'{}: {}'.format(header, message),
+                                                        key=None)])
     else:
-        return MessageContainer(header=u'%s'%header, message=u'%s'%message)
+        return MessageContainer(header=unicode(header), message=unicode(message))
 
 ################################################################################
 def Start():
@@ -177,11 +178,11 @@ def Matches(item):
     # Second Step
     step_method, step_endpoint = MULTI_STEP_FUNCTIONS['fix_match'][1].split()
     for result in data['_children']:
-        title = '[%s%%] %s - %s' % (result['score'], result['year'], result['name'])
+        title = '[%s%%] %s - %s' % (result['score'], result.get('year', None), result['name'])
         guid = String.Quote(result['guid'], usePlus=True)
         name = String.Quote(result['name'], usePlus=True)
         oc.add(DirectoryObject(key=Callback(ExecuteCommand, method=step_method,
                                             endpoint=step_endpoint%(item, guid, name)),
-                               thumb=Resource.ContentsOfURLWithFallback(result['thumb']),
-                               title=u'%s'%title))
+                               thumb=Resource.ContentsOfURLWithFallback(result.get('thumb', None)),
+                               title=unicode(title)))
     return oc
