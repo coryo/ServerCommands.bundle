@@ -6,6 +6,12 @@
         "default": "true"
     },
     {
+        "id": "cancel_refresh",
+        "label": "Allow Cancel Refresh",
+        "type": "bool",
+        "default": "true"
+    },
+    {
         "id": "optimize",
         "label": "Allow Optimize",
         "type": "bool",
@@ -40,5 +46,5 @@
         "label": "Allow Fix Match",
         "type": "bool",
         "default": "false"
-    }    
+    }
 ]

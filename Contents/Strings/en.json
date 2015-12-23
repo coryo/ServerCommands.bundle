@@ -11,5 +11,6 @@
     "analyze": "Analyze",
     "empty_trash": "Empty Trash",
     "clean_bundles": "Clean Bundles",
-    "fix_match": "Fix Match"
+    "fix_match": "Fix Match",
+    "cancel_refresh": "Cancel Refresh"
 }

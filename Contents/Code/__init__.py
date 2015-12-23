@@ -10,14 +10,16 @@ ICON = 'icon-default.png'
 # Single shot functions
 FUNCTIONS = {
     '/library': {
-        "refresh_all":   "GET /library/sections/all/refresh",
-        "optimize":      "PUT /library/optimize",
-        "clean_bundles": "PUT /library/clean/bundles"
+        "refresh_all":    "GET /library/sections/all/refresh",
+        "cancel_refresh": "DELETE /library/sections/all/refresh",
+        "optimize":       "PUT /library/optimize",
+        "clean_bundles":  "PUT /library/clean/bundles"
     },
     '/library/sections': {
-        "refresh":     "GET /library/sections/%s/refresh",
-        "empty_trash": "PUT /library/sections/%s/emptyTrash",
-        "analyze":     "PUT /library/sections/%s/analyze"
+        "refresh":        "GET /library/sections/%s/refresh",
+        "cancel_refresh": "DELETE /library/sections/%s/refresh",
+        "empty_trash":    "PUT /library/sections/%s/emptyTrash",
+        "analyze":        "PUT /library/sections/%s/analyze"
     },
     '/library/metadata': {
         "refresh": "PUT /library/metadata/%s/refresh",
