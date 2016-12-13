@@ -129,10 +129,17 @@ def BrowseContainers(endpoint, functions=None):
     res = get_json(endpoint)
     if res is None:
         return error_message(header=oc.title2, message='Error')
-    if not res['_children']:
+    if not res['MediaContainer']:
         return error_message(header=oc.title2, message='No child items')
 
-    for item in res['_children']:
+    if 'Directory' in res['MediaContainer']:
+        items = res['MediaContainer']['Directory']
+    elif 'Metadata' in res['MediaContainer']:
+        items = res['MediaContainer']['Metadata']
+    else:
+        return error_message(header=oc.title2, message='No child items')
+
+    for item in items:
         key = item['key']
         metadata = key.startswith('/library/metadata')
         thumb = item['thumb'] if 'thumb' in item else None
@@ -174,12 +181,12 @@ def Matches(item):
     oc = ObjectContainer(title2=L('fix_match'))
     if data is None:
         return error_message(header=L('fix_match'), message='Error')
-    if not data['_children']:
+    if not data['MediaContainer']:
         return error_message(header=L('fix_match'), message='No Matches')
 
     # Second Step
     step_method, step_endpoint = MULTI_STEP_FUNCTIONS['fix_match'][1].split()
-    for result in data['_children']:
+    for result in data['MediaContainer']['SearchResult']:
         title = '[%s%%] %s - %s' % (result['score'], result.get('year', None), result['name'])
         guid = String.Quote(result['guid'], usePlus=True)
         name = String.Quote(result['name'], usePlus=True)
